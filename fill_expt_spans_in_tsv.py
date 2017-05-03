@@ -19,7 +19,7 @@ import re
 from sets import Set
 import re
 
-from bokeh.plotting import figure, show, output_notebook, output_file
+from bokeh.plotting import figure, show, save, output_notebook, output_file
 from bokeh.models import ColumnDataSource, Range1d
 
 #
@@ -149,7 +149,7 @@ def add_spans(tsv):
         inExHead = row['Codes']
         sid = row['SentenceId']
         paragraph = row['Paragraph']
-        heading = row['Headings']
+        heading = str(row['Headings'])
         floatingBox = row['FloatingBox?']
     
         #print("i: " + str(i))
@@ -157,6 +157,10 @@ def add_spans(tsv):
         #print("~~~~~~~~~~~~~~~~~~")
         
         s = int(sid[1:])
+        
+        if(paragraph!=paragraph):
+            continue
+
         p = 0
         if( paragraph == '-'):
             p = 0
@@ -180,7 +184,7 @@ def add_spans(tsv):
         
         if( heading != heading ):
             heading = ""
-    
+        
         if( re.match('^Result', heading) is None or floatingBox):
             continue
         
@@ -192,7 +196,11 @@ def add_spans(tsv):
         if(es!=es):
             continue
             
-        codes = es.split('|')
+        try:
+            codes = str(es).split('|')        
+        except AttributeError:
+            print(str(es) + " is not a string.  Skipping...")
+            continue
     
         fig_ref_set.add(i)
     
@@ -211,10 +219,14 @@ def add_spans(tsv):
         inExHead = row['Codes']
         sid = row['SentenceId']
         paragraph = row['Paragraph']
-        heading = row['Headings']
+        heading = str(row['Headings'])
         floatingBox = row['FloatingBox?']
         
-        expt_codes = es.split('|')
+        try:
+            expt_codes = str(es).split('|')
+        except AttributeError:
+            print(str(es) + " is not a string.  Skipping...")
+            continue
         
         # search backwards for a boundary condition between sentences
         c1 = i_fig - 1
@@ -276,7 +288,7 @@ def prepare_and_draw_gannt(filename, title, tsv):
         inExHead = row['Codes']
         sid = row['SentenceId']
         paragraph = row['Paragraph']
-        heading = row['Headings']
+        heading = str(row['Headings'])
         floatingBox = row['FloatingBox?']
         
         #print("i: " + str(i))
@@ -370,7 +382,7 @@ def prepare_and_draw_gannt(filename, title, tsv):
     G.scatter('clause_id', 'offset', source=cds2, marker='x', size=15,
                   line_color="red", fill_color="red")
     
-    show(G)
+    save(G)
 
 def fill_expt_spans_for_tsv(input, title, tsv_output, img_output=None):
     

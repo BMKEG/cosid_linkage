@@ -1,13 +1,12 @@
 #!/bin/bash
-if [[ $# -ne 3 ]] ; then
-  echo "USAGE ./run_docker.sh <JPORT> <DATA_FOLDER> <MODEL_FOLDER>"
+if [[ $# -ne 2 ]] ; then
+  echo "USAGE ./run_docker.sh <PAPERS> <ELASTIC_SEARCH_DATA>"
   exit
 fi
 
-JPORT=$1
-DATA_FOLDER=$2 
-MODEL_FOLDER=$3
+PAPERS=$1 
+ES_DATA=$2
 
 #  -v option mounts the place where this command was run from as /tmp/evidence_extractor
-docker run -i -t -v $MODEL_FOLDER:/tmp/models -v $PWD:/tmp/evidence_extractor/ -v $DATA_FOLDER:/tmp/data -w=/tmp/evidence_extractor/ --rm -p ${JPORT}:8888 evidence_extractor
+docker run -i -t -v $PWD:/tmp/evidence_extractor/ -v $PAPERS:/tmp/papers -v $ES_DATA:/tmp/es_data -w=/tmp/evidence_extractor/ --rm -p 8889:8889 -p 9201:9201 evidence_extractor
 

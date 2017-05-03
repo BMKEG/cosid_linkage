@@ -1,0 +1,93 @@
+FROM ubuntu:16.04
+MAINTAINER Gully Burns <gullyburns@gmail.com>
+
+# Set the locale
+RUN locale-gen en_US.UTF-8  
+ENV LANG en_US.UTF-8  
+ENV LANGUAGE en_US:en  
+ENV LC_ALL en_US.UTF-8  
+
+# install some basics and libraries needed for dryscrape
+RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
+    locale-gen && apt-get update --fix-missing && \
+    apt-get upgrade -y --no-install-recommends && \
+    apt-get install -y --no-install-recommends wget bzip2 ca-certificates \
+    libglib2.0-0 libxext6 libsm6 libxrender1 gcc g++ \
+    git mercurial subversion curl vim screen htop less default-jdk maven sudo && \
+    # clean up apt \
+    apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# set up some basics and add conda to the path for all users
+RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh \
+    mkdir .jupyter && \
+    mkdir -p -m 700 .local/share/jupyter && \
+    echo "cacert=/etc/ssl/certs/ca-certificates.crt" > .curlrc
+
+# install anaconda 2.5 to run sciDT
+RUN wget --quiet https://repo.continuum.io/archive/Anaconda2-2.5.0-Linux-x86_64.sh -O ~/anaconda.sh && \
+    /bin/bash ~/anaconda.sh -b -p /opt/conda && \
+    rm ~/anaconda.sh
+
+# add conda to the path var
+ENV PATH /opt/conda/bin:$PATH
+
+# install graph-tool
+RUN apt-key adv --keyserver pgp.skewed.de --recv-key 98507F25 && \
+    touch /etc/apt/sources.list.d/graph-tool.list && \
+    echo 'deb http://downloads.skewed.de/apt/xenial xenial universe' >> /etc/apt/sources.list.d/graph-tool.list && \
+    echo 'deb-src http://downloads.skewed.de/apt/xenial xenial universe' >> /etc/apt/sources.list.d/graph-tool.list && \
+    apt-get update && apt-get install -y --no-install-recommends python-graph-tool && \
+    ln -s /usr/lib/python2.7/dist-packages/graph_tool /opt/conda/lib/python2.7/site-packages/graph_tool && \
+    apt-get clean && apt-get autoremove && rm -rf /var/lib/apt/lists/*
+    
+RUN CONDA_SSL_VERIFY=false && \
+	conda update pyopenssl
+
+RUN conda update -y conda conda-build conda-env && \
+    # you can add further conda libraries here \
+    conda install -y xgboost seaborn tqdm termcolor joblib pygobject3 gtk3 \
+    pymysql \
+    # and further conda channels here \
+    -c pkgw -c floriangeigl -c conda-forge -c bioconda -c jaikumarm 
+    
+# installs keras v0.3.0 to permit sciDT to run 
+RUN conda install --channel https://conda.anaconda.org/kundajelab keras &&\
+    # cleans up conda after installation of libraries \
+    conda clean -i -l -t -y
+    
+# install SciDT libraries
+RUN git clone https://github.com/BMKEG/sciDT && \
+	cd sciDT && \
+	git checkout development
+RUN git clone https://github.com/spyysalo/nxml2txt nxml2txt
+RUN mkdir sciDT-pipeline
+COPY sciDP-pipeline-0.1.1-SNAPSHOT-jar-with-dependencies.jar \
+	sciDT-pipeline/sciDP-pipeline-0.1.1-SNAPSHOT-jar-with-dependencies.jar
+
+RUN useradd -ms /bin/bash scidt
+USER scidt
+WORKDIR /home/scidt
+
+# install Elastic Search
+ENV ES_PKG_NAME elasticsearch-2.3.3
+RUN wget https://download.elasticsearch.org/elasticsearch/elasticsearch/$ES_PKG_NAME.tar.gz --quiet && \
+    tar xvzf $ES_PKG_NAME.tar.gz && \
+    rm -f $ES_PKG_NAME.tar.gz && \
+    mv $ES_PKG_NAME elasticsearch
+    
+RUN echo "path.data: /home/scidt/es_data/" > elasticsearch/config/elasticsearch.yml
+
+# expose jupyter port 
+EXPOSE 8888 
+
+# start jupyter at container start
+CMD ["startup.sh"] 
+
+# copy jupyter startscript into the container
+COPY start-notebook.sh /usr/local/bin/ 
+
+# copy elasticsearch startscript into the container
+COPY start-elastic.sh /usr/local/bin/ 
+
+# copy startup script into the container
+COPY startup.sh /usr/local/bin/ 
