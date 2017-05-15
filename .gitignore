@@ -1,3 +1,5 @@
 .history
 .project
 .pydevproject
+.DS_Store
+.idea/
